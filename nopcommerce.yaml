@@ -1,0 +1,72 @@
+---
+- name: install nop commerce
+  become: yes
+  hosts: all
+  tasks:
+    - name: download the debian file
+      get_url:
+        url: https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb
+        dest: /tmp/packages-microsoft-prod.deb
+    - name: install the debian package
+      apt:
+        deb: /tmp/packages-microsoft-prod.deb
+    - name: install .net core runtimes
+      apt:
+        name: "{{ item }}"
+        update_cache: yes
+        state: present
+      with_items:
+       - apt-transport-https
+       - aspnetcore-runtime-6.0
+    - name: Update the repository cache and update package "nginx" to latest version using default release squeeze-backport
+      apt:
+        name: nginx
+        state: present
+    - name: reverrse proxy
+      ansible.builtin.template:
+        src: default.j2
+        dest: /etc/nginx/sites-available/default
+    - name: Creating directory for nop commerce
+      ansible.builtin.file:
+        path: /var/www/nopCommerce450
+        state: directory
+    - name: deploy any war file
+      ansible.builtin.get_url:
+        url: https://github.com/nopSolutions/nopCommerce/releases/download/release-4.50.2/nopCommerce_4.50.2_NoSource_linux_x64.zip
+        dest: /var/www/nopCommerce450
+    - name: installing unzip
+      apt:
+        name: unzip
+        state: present
+    - name: Unzipping nopCommerce450
+      ansible.builtin.unarchive:
+        src: /var/www/nopCommerce450/nopCommerce_4.50.2_NoSource_linux_x64.zip
+        dest: /var/www/nopCommerce450
+        remote_src: yes
+    - name: Creating directory for bin
+      ansible.builtin.file:
+        path: /var/www/nopCommerce450/bin
+        state: directory
+    - name: Creating directory for logs
+      ansible.builtin.file:
+        path: /var/www/nopCommerce450/logs
+        state: directory
+    - name: Adding file permssions
+      ansible.builtin.file:
+        path: /var/www/nopCommerce450
+        state: directory
+        recurse: yes
+        group: www-data
+        owner: www-data
+    - name: nopCommerce450 Service
+      ansible.builtin.template:
+        src: nopCommerce450.service.j2
+        dest: /etc/systemd/system/nopCommerce450.service
+    - name: Start nopCommerce450 Service
+      systemd:
+        name: nopCommerce450.service
+        state: started
+    - name: Start nginx Service
+      systemd:
+        name: nginx
+        state: restarted
